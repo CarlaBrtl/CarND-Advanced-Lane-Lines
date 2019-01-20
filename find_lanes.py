@@ -74,6 +74,7 @@ def undistort(image_name, distortion_coefficients):
     return undistorted_image
 
 def apply_thresholds(image):
+    print "Applying color and gradient threshold"
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
     # Get the scaled Sobels
@@ -108,18 +109,105 @@ def apply_thresholds(image):
     combined = np.zeros_like(direction)
     combined[((magniture_binary == 1) & (sx_binary == 1)) | (hls_binary == 1)] = 1
 
-    # Note: Uncomment the following lines to test  on an image
-    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-    ax1.imshow(image)
-    ax1.set_title('Original', fontsize=30)
-    ax2.imshow(combined)
-    ax2.set_title('Thresholded', fontsize=30)
-    plt.show()
+    ## Note: Uncomment the following lines to test  on an image
+    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    # ax1.imshow(image)
+    # ax1.set_title('Original', fontsize=30)
+    # ax2.imshow(combined)
+    # ax2.set_title('Thresholded', fontsize=30)
+    # plt.show()
 
+    return combined
+
+def perspective_transform(image):
+    print "Transforming the perspective"
+    img_size = (image.shape[1], image.shape[0])
+    src = np.float32([[447, 548], [844, 548], [1005, 647], [301, 647]])
+
+    dst = np.float32([[301, 475], [1005, 475],
+                      [1005, 647], [301, 647]])
+
+    M = cv2.getPerspectiveTransform(src, dst)
+    warped = cv2.warpPerspective(image, M, img_size)
+
+    ## Note: Uncomment the following lines to test  on an image
+    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    # ax1.imshow(image)
+    # ax1.set_title('Theshold', fontsize=30)
+    # ax2.imshow(warped)
+    # ax2.set_title('Warped', fontsize=30)
+    # plt.show()
+
+    return warped
+
+def detect_lines(image):
+    shape = image.shape
+
+    #Get the bottom third of the picture
+    number_of_windows = 5
+    window_size = np.int(image.shape[0]//number_of_windows)
+
+    left_peaks_y = []
+    left_peaks_x = []
+    right_peaks_y = []
+    right_peaks_x = []
+
+    for window_id in range(number_of_windows):
+
+        # TODO clean this up
+        left_lane_point = detect_one_lane(image, left_peaks_x, shape, window_id, window_size, True)
+        left_peaks_x.append(left_lane_point[0])
+        left_peaks_y.append(left_lane_point[1])
+
+        right_lane_point = detect_one_lane(image, right_peaks_x, shape, window_id, window_size, False)
+        right_peaks_x.append(right_lane_point[0])
+        right_peaks_y.append(right_lane_point[1])
+
+    left_fit = np.polyfit(left_peaks_y, left_peaks_x, 2)
+    right_fit = np.polyfit(right_peaks_y, right_peaks_x, 2)
+    print left_fit
+    print right_fit
+
+    #TODO draw the line
+
+def detect_one_lane(image, left_peaks_x, shape, window_id, window_size, isLeft):
+    ## Left window
+    window_bottom_y = int(shape[0] - (window_id + 1) * window_size)
+    window_top_y = int(shape[0] - window_id * window_size)
+
+    if len(left_peaks_x) == 0:
+        if isLeft:
+            window_left_x = 0
+            window_right_x = shape[1] // 2
+        else:
+            window_left_x = shape[1] // 2
+            window_right_x = shape[1]
+    else:
+        window_left_x = left_peaks_x[-1] - 100
+        window_right_x = left_peaks_x[-1] + 100
+
+    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    # ax1.imshow(image)
+    # ax1.set_title('Theshold', fontsize=30)
+    # ax2.imshow(image[window_bottom_y:window_top_y, :])
+    # ax2.set_title('Warped', fontsize=30)
+    # plt.show()
+
+    histogram = np.sum(image[window_bottom_y:window_top_y, :], axis=0)
+
+    # Find the 2 peaks, where the max of the histogram is
+    left_peak = np.argmax(histogram[window_left_x:window_right_x])
+    return left_peak + window_left_x, window_top_y
 
 # Run the code
 distortion_coefficients = calibrate()
 image_names = load_test_images_names()
 for image in image_names:
     undistorted_image = undistort(image, distortion_coefficients)
-    apply_thresholds(undistorted_image)
+    threshold_image = apply_thresholds(undistorted_image)
+    perspective_image = perspective_transform(threshold_image)
+    detect_lines(perspective_image)
+    # TODO calculate the turn
+    # TODO create an image without the perspective with the line
+    # TODO Put it in the image perspective
+    # TODO create a new image with both
