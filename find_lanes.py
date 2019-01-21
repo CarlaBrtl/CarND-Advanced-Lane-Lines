@@ -2,6 +2,32 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from moviepy.editor import VideoFileClip
+
+# Define a class to receive the characteristics of each line detection
+class Line(): ## TODO Check what fieldds I need
+    def __init__(self, current_fit):
+        # was the line detected in the last iteration?
+        self.detected = False
+        # x values of the last n fits of the line
+        self.recent_xfitted = []
+        #average x values of the fitted line over the last n iterations
+        self.bestx = None
+        #polynomial coefficients averaged over the last n iterations
+        self.best_fit = None
+        #polynomial coefficients for the most recent fit
+        self.current_fit = current_fit
+        #radius of curvature of the line in some units
+        self.radius_of_curvature = None
+        #distance in meters of vehicle center from the line
+        self.line_base_pos = None
+        #difference in fit coefficients between last and new fits
+        self.diffs = np.array([0,0,0], dtype='float')
+        #x values for detected line pixels
+        self.allx = None
+        #y values for detected line pixels
+        self.ally = None
+
 
 def load_test_images_names():
     # Get the image names
@@ -13,6 +39,12 @@ def load_test_images_names():
 
 def load_image(image_name):
     return cv2.imread(image_name)
+
+def save_image(image,  image_name):
+    print "Saving image"
+    image_name = image_name[12:]
+    cv2.imwrite(os.path.join("output_images/", image_name), image)
+
 
 ## Load calibration pictures
 ## Convert then to gray scale
@@ -54,9 +86,8 @@ def calibrate():
 
     return ret, mtx, dist, rvecs, tvecs
 
-def undistort(image_name, distortion_coefficients):
-    print "Undistorting image " + image_name
-    image = load_image(image_name)
+def undistort(image, distortion_coefficients):
+    print "Undistorting image "
 
     mtx = distortion_coefficients[1]
     dist = distortion_coefficients[2]
@@ -144,8 +175,22 @@ def perspective_transform(image,  inverse):
 
     return warped
 
-def detect_lines(image):
+def detect_lines(image, left_lines, right_lines):
     print "Detecting lines"
+
+    if (left_lines ==[]) and (right_lines == []):
+        out_img, left_line, right_line = detect_lines_windows(image)
+    else:
+        out_img, left_line, right_line = detect_lines_polinomial(image, left_lines, right_lines)
+
+    left_lines.append(Line(left_line))
+    right_lines.append(Line(right_line))
+    return out_img
+
+def detect_lines_polinomial(image, left_lines, right_lines):
+    return detect_lines_windows(image) ## TODO Change
+
+def detect_lines_windows(image):
     shape = image.shape
 
     #Get the bottom third of the picture
@@ -169,7 +214,7 @@ def detect_lines(image):
 
     out_img = draw_lines(image, left_fit, right_fit)
 
-    return out_img
+    return out_img, left_fit, right_fit
 
 
 def draw_lines(image, left_fit, right_fit):
@@ -228,30 +273,43 @@ def detect_one_lane(image, peaks_x, peaks_y, shape, window_id, window_size, isLe
 
 # Run the code
 
-distortion_coefficients = calibrate()
-image_names = load_test_images_names()
-for image in image_names:
-    print "Starting the process"
+def process_test_images():
+    image_names = load_test_images_names()
+    for image_name in image_names:
+        print "Starting the process on image" + image_name
+        distorted_image = load_image(image_name)
+
+        result = process_one_image(distorted_image, True)
+
+        save_image(result, image_name)
+
+
+def process_one_image(image, left_lines, right_lines):
     undistorted_image = undistort(image, distortion_coefficients)
     threshold_image = apply_thresholds(undistorted_image)
     perspective_image = perspective_transform(threshold_image, False)
-    lines_img = detect_lines(perspective_image)
+    lines_img = detect_lines(perspective_image, left_lines, right_lines)
+
     # Put back into the original space
     perspective_lines_img = perspective_transform(lines_img, True)
-
     # Combine the result with the original image
     result = cv2.addWeighted(undistorted_image, 1, perspective_lines_img, 0.3, 0)
+    return result
+
+def process_video(video_full_name):
+    left_lines = []
+    right_lines = []
+
+    clip1 = VideoFileClip(video_full_name).subclip(0, 5)
+    output_clip = clip1.fl_image(lambda image: process_one_image(image, left_lines, right_lines))
+    output_clip.write_videofile("ouput.mp4", audio=False)
 
 
-    ## Note: Uncomment the following lines to test  on an image
-    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-    ax1.imshow(undistorted_image)
-    ax1.set_title('Original Image', fontsize=30)
-    ax2.imshow(result)
-    ax2.set_title('Processed image', fontsize=30)
-    plt.show()
+distortion_coefficients = calibrate()
+# process_test_images()
+process_video('project_video.mp4')
+
+
 
     # TODO calculate the turn
-
-
-#TODO make it work on a video
+    #TODO make it work on a video
