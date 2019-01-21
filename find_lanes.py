@@ -188,7 +188,63 @@ def detect_lines(image, left_lines, right_lines):
     return out_img
 
 def detect_lines_polinomial(image, left_lines, right_lines):
-    return detect_lines_windows(image) ## TODO Change
+
+    # Get the zone I need to look into
+    poly_left_average = get_average_over_last_10_lines(left_lines)
+    poly_right_average = get_average_over_last_10_lines(right_lines)
+    margin = 100
+
+    # Get the highlighted pixels
+    nonzero = image.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+
+    # Get the search highlighted pixels in the search area
+    left_lane_inds = ((nonzerox > (poly_left_average[0]*(nonzeroy**2) + poly_left_average[1]*nonzeroy +
+                    poly_left_average[2] - margin)) & (nonzerox < (poly_left_average[0]*(nonzeroy**2) +
+                    poly_left_average[1]*nonzeroy + poly_left_average[2] + margin)))
+    right_lane_inds = ((nonzerox > (poly_right_average[0]*(nonzeroy**2) + poly_right_average[1]*nonzeroy +
+                    poly_right_average[2] - margin)) & (nonzerox < (poly_right_average[0]*(nonzeroy**2) +
+                    poly_right_average[1]*nonzeroy + poly_right_average[2] + margin)))
+
+    # Fit a polynomial on it
+    leftx = nonzerox[left_lane_inds]
+    lefty = nonzeroy[left_lane_inds]
+    if (leftx == []) or (lefty == []): ## TODO that works only if the current fit is not too old... Add logic for the case where it is old, use the window call
+        left_fit = np.polyfit(lefty, leftx, 2)
+    else:
+        left_fit = left_lines[-1].current_fit
+
+    rightx = nonzerox[right_lane_inds]
+    righty = nonzeroy[right_lane_inds]
+    if (rightx == []) or (righty == []):
+        right_fit = np.polyfit(righty, rightx, 2)
+    else:
+        right_fit = right_lines[-1].current_fit
+
+    # call draw_lines on image
+    out_img = draw_lines(image, left_fit, right_fit)
+    return out_img, left_fit, right_fit
+
+def get_average_over_last_10_lines(lines):
+    poly_2 = []
+    poly_1 = []
+    poly_0 = []
+    if len(lines) < 10:
+        for line in lines:
+            poly = line.current_fit
+            poly_0.append(poly[0])
+            poly_1.append(poly[1])
+            poly_2.append(poly[2])
+    else:
+        for line in lines[-10:]:
+            poly = line.current_fit
+            poly_0.append(poly[0])
+            poly_1.append(poly[1])
+            poly_2.append(poly[2])
+
+    return np.average(poly_0), np.average(poly_1), np.average(poly_2)
+
 
 def detect_lines_windows(image):
     shape = image.shape
@@ -272,7 +328,6 @@ def detect_one_lane(image, peaks_x, peaks_y, shape, window_id, window_size, isLe
 
 
 # Run the code
-
 def process_test_images():
     image_names = load_test_images_names()
     for image_name in image_names:
@@ -300,14 +355,14 @@ def process_video(video_full_name):
     left_lines = []
     right_lines = []
 
-    clip1 = VideoFileClip(video_full_name).subclip(0, 5)
+    clip1 = VideoFileClip(video_full_name)
     output_clip = clip1.fl_image(lambda image: process_one_image(image, left_lines, right_lines))
     output_clip.write_videofile("ouput.mp4", audio=False)
 
 
 distortion_coefficients = calibrate()
 # process_test_images()
-process_video('project_video.mp4')
+process_video('harder_challenge_video.mp4')
 
 
 
