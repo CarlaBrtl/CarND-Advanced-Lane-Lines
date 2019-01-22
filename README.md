@@ -23,7 +23,8 @@ In order to go from *Fig 1* to *Fig2* we need to follow the following steps:
   * Detect the line pixels to get the lane boundary
   * Warp the lane boundary on the original picture
   
-  
+All the code for this pipeline is in `find_lanes.py`
+ 
 TODO Add a note on the curvature and all 
 TODO explain each  steps
 
@@ -56,9 +57,20 @@ The result is as follow:
 
 Perspective Change
 --
+To be able to fit polynomials on the lanes we need to change the perspective to be from the top (see `perspective_transform()`):
+. 
+To change the perspective, I took 4 points in the original image and defines 4 points where they should be. 
+These 2 sets of 4 points are then passed to `cv2.getPerspectiveTransform` to get the perspective transform matrix M. 
+
+We then warp the image with M  using `cv2.warpPerspective`. 
+
+TODO ADD IMAGE 
+
+Detect the lane 
+---
 TODO
-
-
+There are 2 ways to detect the lane. 
+If the image we are processing is a standalone image, or the first image of the video, we search for the lanes using a sliding window search. 
 
 
 What was already there 

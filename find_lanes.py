@@ -190,7 +190,7 @@ def detect_lines(image, left_lines, right_lines):
     print "Detecting lines"
 
     if (left_lines ==[]) and (right_lines == []):
-        out_img, left_line, right_line = detect_lines_windows(image)
+        out_img, left_line, right_line = detect_lines_windows(image, left_lines, right_lines)
     else:
         out_img, left_line, right_line = detect_lines_polinomial(image, left_lines, right_lines)
 
@@ -203,7 +203,7 @@ def detect_lines_polinomial(image, left_lines, right_lines):
     # Get the zone I need to look into
     poly_left_average = get_average_over_last_n_lines(left_lines, 5)
     poly_right_average = get_average_over_last_n_lines(right_lines, 5)
-    margin = 100
+    margin = 50
 
     # Get the highlighted pixels
     nonzero = image.nonzero()
@@ -224,11 +224,11 @@ def detect_lines_polinomial(image, left_lines, right_lines):
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
 
-    is_left_too_small = (len(leftx) <= 5) or (len(lefty) <= 5)
-    is_right_too_small = (len(rightx) <= 5) or (len(righty) <= 5)
+    is_left_too_small = (len(leftx) <= 10) or (len(lefty) <= 10)
+    is_right_too_small = (len(rightx) <= 10) or (len(righty) <= 10)
 
     if is_left_too_small or is_right_too_small:
-        out_img, left_fit, right_fit = detect_lines_windows(image)
+        out_img, left_fit, right_fit = detect_lines_windows(image, left_lines, right_lines)
 
     if not is_left_too_small:
         left_fit = np.polyfit(lefty, leftx, 2)
@@ -239,13 +239,11 @@ def detect_lines_polinomial(image, left_lines, right_lines):
     out_img = draw_lines(image, left_fit, right_fit)
     return out_img, left_fit, right_fit
 
-## TODO change?
 def get_average_over_last_n_lines(lines, n):
     poly_2 = []
     poly_1 = []
     poly_0 = []
 
-    lines_avg = []
     if len(lines) < n:
         lines_avg = lines
     else:
@@ -260,7 +258,7 @@ def get_average_over_last_n_lines(lines, n):
     return np.average(poly_0), np.average(poly_1), np.average(poly_2)
 
 
-def detect_lines_windows(image):
+def detect_lines_windows(image, left_lines, right_lines):
     shape = image.shape
 
     #Get the bottom third of the picture
@@ -279,8 +277,17 @@ def detect_lines_windows(image):
         # Fill right_peaks_x and right_peaks_y with the points of the left lane
         detect_one_lane(image, right_peaks_x, right_peaks_y, shape, window_id, window_size, False)
 
-    left_fit = np.polyfit(left_peaks_y, left_peaks_x, 2)
-    right_fit = np.polyfit(right_peaks_y, right_peaks_x, 2)
+    left_fit = []
+    right_fit = []
+
+    if (len(left_peaks_x) > 0) and (len(left_peaks_y) > 0):
+        left_fit = np.polyfit(left_peaks_y, left_peaks_x, 2)
+    else:
+        left_fit = left_lines[-1].current_fit
+    if (len(right_peaks_x) > 0) and (len(right_peaks_y) > 0):
+        right_fit = np.polyfit(right_peaks_y, right_peaks_x, 2)
+    else:
+        right_fit = right_lines[-1].current_fit
 
     out_img = draw_lines(image, left_fit, right_fit)
 
@@ -335,7 +342,7 @@ def detect_one_lane(image, peaks_x, peaks_y, shape, window_id, window_size, isLe
     histogram = np.sum(image[window_bottom_y:window_top_y, :], axis=0)
 
     #  If we have more than 50 pixels, append to our peak list
-    if np.int(histogram[window_left_x:window_right_x].sum()) > 50:
+    if np.int(histogram[window_left_x:window_right_x].sum()) > 10:
         left_peak = np.argmax(histogram[window_left_x:window_right_x])
         peaks_x.append(left_peak + window_left_x)
         peaks_y.append(window_top_y)
@@ -376,9 +383,9 @@ def process_video(video_full_name):
 
 distortion_coefficients = calibrate()
 # process_test_images()
-process_video('project_video.mp4')
+process_video('challenge_video.mp4')
 
 
 
     # TODO calculate the turn
-    #TODO make it work on a video
+    # TODO finish the readme
