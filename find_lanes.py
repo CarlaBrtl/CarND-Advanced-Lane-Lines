@@ -82,7 +82,10 @@ def calibrate():
     # ax1.set_title('Original Image', fontsize=30)
     # ax2.imshow(dst)
     # ax2.set_title('Undistorted Image', fontsize=30)
+    # plt.savefig('output_images/calib_example.jpg')
     # plt.show()
+
+
 
     return ret, mtx, dist, rvecs, tvecs
 
@@ -126,10 +129,10 @@ def apply_thresholds(image):
     magniture_binary = np.zeros_like(magnitude)
     magniture_binary[(scaled_sobel_mag >= 50) & (scaled_sobel_mag <= 300)] = 1
 
-    # Direction of the gradient
-    direction = np.arctan2(absolute_sobely, absolute_sobelx)
-    direction_binary = np.zeros_like(direction)
-    direction_binary[(direction >= 0.3) & (direction <= 0.7)] = 1
+    # # Direction of the gradient
+    # direction = np.arctan2(absolute_sobely, absolute_sobelx)
+    # direction_binary = np.zeros_like(direction)
+    # direction_binary[(direction >= 0.3) & (direction <= 0.7)] = 1
 
     # Convert to HLS
     hls_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
@@ -137,15 +140,23 @@ def apply_thresholds(image):
     hls_binary = np.zeros_like(s_channel)
     hls_binary[(s_channel > 200) & (s_channel < 255)] = 1
 
-    combined = np.zeros_like(direction)
+
+    combined = np.zeros_like(magniture_binary)
     combined[((magniture_binary == 1) & (sx_binary == 1)) | (hls_binary == 1)] = 1
 
     ## Note: Uncomment the following lines to test  on an image
-    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-    # ax1.imshow(image)
-    # ax1.set_title('Original', fontsize=30)
-    # ax2.imshow(combined)
-    # ax2.set_title('Thresholded', fontsize=30)
+    # f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(1, 5, figsize=(20, 10))
+    # ax0.imshow(image)
+    # ax0.set_title('Original image',  fontsize=30)
+    # ax1.imshow(magniture_binary)
+    # ax1.set_title('Magnitude binary', fontsize=30)
+    # ax2.imshow(sx_binary)
+    # ax2.set_title('Sobelx binary', fontsize=30)
+    # ax3.imshow(hls_binary)
+    # ax3.set_title('Saturation channel binary', fontsize=30)
+    # ax4.imshow(combined)
+    # ax4.set_title('Combined image', fontsize=30)
+    # plt.savefig('output_images/apply_threshold.jpg')
     # plt.show()
 
     return combined
@@ -190,8 +201,8 @@ def detect_lines(image, left_lines, right_lines):
 def detect_lines_polinomial(image, left_lines, right_lines):
 
     # Get the zone I need to look into
-    poly_left_average = get_average_over_last_10_lines(left_lines)
-    poly_right_average = get_average_over_last_10_lines(right_lines)
+    poly_left_average = get_average_over_last_n_lines(left_lines, 5)
+    poly_right_average = get_average_over_last_n_lines(right_lines, 5)
     margin = 100
 
     # Get the highlighted pixels
@@ -210,38 +221,41 @@ def detect_lines_polinomial(image, left_lines, right_lines):
     # Fit a polynomial on it
     leftx = nonzerox[left_lane_inds]
     lefty = nonzeroy[left_lane_inds]
-    if (leftx == []) or (lefty == []): ## TODO that works only if the current fit is not too old... Add logic for the case where it is old, use the window call
-        left_fit = np.polyfit(lefty, leftx, 2)
-    else:
-        left_fit = left_lines[-1].current_fit
-
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
-    if (rightx == []) or (righty == []):
+
+    is_left_too_small = (len(leftx) <= 5) or (len(lefty) <= 5)
+    is_right_too_small = (len(rightx) <= 5) or (len(righty) <= 5)
+
+    if is_left_too_small or is_right_too_small:
+        out_img, left_fit, right_fit = detect_lines_windows(image)
+
+    if not is_left_too_small:
+        left_fit = np.polyfit(lefty, leftx, 2)
+    if not is_right_too_small:
         right_fit = np.polyfit(righty, rightx, 2)
-    else:
-        right_fit = right_lines[-1].current_fit
 
     # call draw_lines on image
     out_img = draw_lines(image, left_fit, right_fit)
     return out_img, left_fit, right_fit
 
-def get_average_over_last_10_lines(lines):
+## TODO change?
+def get_average_over_last_n_lines(lines, n):
     poly_2 = []
     poly_1 = []
     poly_0 = []
-    if len(lines) < 10:
-        for line in lines:
-            poly = line.current_fit
-            poly_0.append(poly[0])
-            poly_1.append(poly[1])
-            poly_2.append(poly[2])
+
+    lines_avg = []
+    if len(lines) < n:
+        lines_avg = lines
     else:
-        for line in lines[-10:]:
-            poly = line.current_fit
-            poly_0.append(poly[0])
-            poly_1.append(poly[1])
-            poly_2.append(poly[2])
+        lines_avg = lines[-n:]
+
+    for line in lines_avg:
+        poly = line.current_fit
+        poly_0.append(poly[0])
+        poly_1.append(poly[1])
+        poly_2.append(poly[2])
 
     return np.average(poly_0), np.average(poly_1), np.average(poly_2)
 
@@ -334,7 +348,7 @@ def process_test_images():
         print "Starting the process on image" + image_name
         distorted_image = load_image(image_name)
 
-        result = process_one_image(distorted_image, True)
+        result = process_one_image(distorted_image, [], [])
 
         save_image(result, image_name)
 
@@ -362,7 +376,7 @@ def process_video(video_full_name):
 
 distortion_coefficients = calibrate()
 # process_test_images()
-process_video('harder_challenge_video.mp4')
+process_video('project_video.mp4')
 
 
 
