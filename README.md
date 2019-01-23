@@ -1,19 +1,16 @@
 ## Advanced Lane Finding
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
-![Lanes Image](./examples/example_output.jpg)
+![Lanes Image](./output_images/result.jpg)
 
 [//]: # (Image References)
 
 
-In this project, the goal is to write a software pipeline to identify the lane boundaries in a video.
+In this project, the goal is to write a software pipelie to identify the lane boundaries in a video.
 
 The Project
 ---
 
-In order to go from *Fig 1* to *Fig2* we need to follow the following steps: 
-![Fig 1](./test_images/straight_lines1.jpg)
-
-![Fig 2](./output_images/straight_lines1.jpg)
+This project takes a picture, finds the lane boundaries and displays them, as well as information about the route and the position of the car relative to the lanes
 
 * Get the calibration coefficients for the camera beeing used using a set of chessboard images
 * For each image we want to process: 
@@ -76,9 +73,12 @@ Using those windows we get a set of coordinates we can use to extrapolate a poly
 
 `x` is the average x of the highlighted pixels
 `y` is the bottom of the window
+
  
 We use `np.polyfit(left_peaks_y, left_peaks_x, 2)` to get the coefficients of the polynomial that fits the best.
-TODO add image
+
+![Fig 7](./output_images/window_sliding.png)
+
 #### Polynomial approach
 
 We look for the pixels highlighted that are around another polynomial, we previously calculated. Using the coordinates of those new pixels, we can get the coefficients that would fit our new coefficients the best.
@@ -88,8 +88,6 @@ The most efficient way of doing the search is using the the polynomial of the la
 That being said, there are cases where we can't use this approach: 
 * If the picture is standalone
 * If we couldn't find enough pixels in the area to build a new polynomial
-
-TODO add image
 
 #### Sanity check
 Once we have the polynomials that best fit the picture, we can measure the curvature of the road. Using the curvature we can determine if the latest polinomial makes sense. 
@@ -121,4 +119,4 @@ Shortcomings
 ---
 * This projects could not be used in real time, as it takes longer to process than to play the video, we could use separate the pipeline into different processes to speed it up, or maybe process less images. 
 * This project is writen to process flat, or almost flat roads, the perspective coefficients would need to be different if we wanted to process an uphill or downhill video.
-
+* The `apply_thresholds` needs to be improved to handle change in lighting or roads that are different color like in the challenge videos.
