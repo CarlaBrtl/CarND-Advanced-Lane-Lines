@@ -5,28 +5,15 @@ import os
 from moviepy.editor import VideoFileClip
 
 # Define a class to receive the characteristics of each line detection
-class Line(): ## TODO Check what fieldds I need
-    def __init__(self, current_fit):
-        # was the line detected in the last iteration?
-        self.detected = False
-        # x values of the last n fits of the line
-        self.recent_xfitted = []
-        #average x values of the fitted line over the last n iterations
-        self.bestx = None
-        #polynomial coefficients averaged over the last n iterations
-        self.best_fit = None
-        #polynomial coefficients for the most recent fit
+class Line():
+    def __init__(self, current_fit, allx, ally):
         self.current_fit = current_fit
-        #radius of curvature of the line in some units
-        self.radius_of_curvature = None
-        #distance in meters of vehicle center from the line
-        self.line_base_pos = None
-        #difference in fit coefficients between last and new fits
-        self.diffs = np.array([0,0,0], dtype='float')
         #x values for detected line pixels
-        self.allx = None
+        self.allx = np.float_(allx)
         #y values for detected line pixels
-        self.ally = None
+        self.ally = np.float_(ally)
+
+        self.curv = None
 
 
 def load_test_images_names():
@@ -182,21 +169,25 @@ def perspective_transform(image,  inverse):
     # ax1.set_title('Theshold', fontsize=30)
     # ax2.imshow(warped)
     # ax2.set_title('Warped', fontsize=30)
+    # plt.savefig('output_images/perspective_transform.jpg')
     # plt.show()
 
     return warped
 
-def detect_lines(image, left_lines, right_lines):
+def detect_lines(image, left_lines, right_lines, force_window_detection):
     print "Detecting lines"
 
-    if (left_lines ==[]) and (right_lines == []):
-        out_img, left_line, right_line = detect_lines_windows(image, left_lines, right_lines)
-    else:
-        out_img, left_line, right_line = detect_lines_polinomial(image, left_lines, right_lines)
+    if force_window_detection:
+        left_lines.pop()
+        right_lines.pop()
 
-    left_lines.append(Line(left_line))
-    right_lines.append(Line(right_line))
-    return out_img
+    if ((left_lines ==[]) and (right_lines == []) or force_window_detection):
+        left_line, right_line = detect_lines_windows(image, left_lines, right_lines)
+    else:
+        left_line, right_line = detect_lines_polinomial(image, left_lines, right_lines)
+
+    left_lines.append(left_line)
+    right_lines.append(right_line)
 
 def detect_lines_polinomial(image, left_lines, right_lines):
 
@@ -228,16 +219,17 @@ def detect_lines_polinomial(image, left_lines, right_lines):
     is_right_too_small = (len(rightx) <= 10) or (len(righty) <= 10)
 
     if is_left_too_small or is_right_too_small:
-        out_img, left_fit, right_fit = detect_lines_windows(image, left_lines, right_lines)
+        left_line, right_line = detect_lines_windows(image, left_lines, right_lines)
 
     if not is_left_too_small:
         left_fit = np.polyfit(lefty, leftx, 2)
+        left_line = Line(left_fit, leftx, lefty)
+
     if not is_right_too_small:
         right_fit = np.polyfit(righty, rightx, 2)
+        right_line = Line(right_fit, rightx, righty)
 
-    # call draw_lines on image
-    out_img = draw_lines(image, left_fit, right_fit)
-    return out_img, left_fit, right_fit
+    return left_line, right_line
 
 def get_average_over_last_n_lines(lines, n):
     poly_2 = []
@@ -282,16 +274,17 @@ def detect_lines_windows(image, left_lines, right_lines):
 
     if (len(left_peaks_x) > 0) and (len(left_peaks_y) > 0):
         left_fit = np.polyfit(left_peaks_y, left_peaks_x, 2)
+        left_line = Line(left_fit, left_peaks_x, left_peaks_y)
     else:
-        left_fit = left_lines[-1].current_fit
+        left_line = left_lines[-1]
+
     if (len(right_peaks_x) > 0) and (len(right_peaks_y) > 0):
         right_fit = np.polyfit(right_peaks_y, right_peaks_x, 2)
+        right_line = Line(right_fit, right_peaks_x, right_peaks_x)
     else:
-        right_fit = right_lines[-1].current_fit
+        right_line = right_lines[-1]
 
-    out_img = draw_lines(image, left_fit, right_fit)
-
-    return out_img, left_fit, right_fit
+    return left_line, right_line
 
 
 def draw_lines(image, left_fit, right_fit):
@@ -359,17 +352,97 @@ def process_test_images():
 
         save_image(result, image_name)
 
+def measure_curvature(left_lines, right_lines):
+    left_curv = measure_one_line_curvature(left_lines[-1])
+    right_curv = measure_one_line_curvature(right_lines[-1])
+
+    return left_curv, right_curv
+
+def measure_one_line_curvature(line):
+    ym_per_pix = 15. / 720
+    xm_per_pix = 3.7 / 1000
+
+    allx = line.allx
+    ally = line.ally
+
+    poly = np.polyfit(ally * ym_per_pix, allx * xm_per_pix, 2)
+    y_eval = np.max(ally)
+
+    curv = ((1 + (2 * poly[0] * y_eval * ym_per_pix + poly[1]) ** 2) ** 1.5) / np.absolute(2 * poly[0])
+    line.curv = curv
+
+    return curv
+
+def measure_distance_from_center(image, left_line, right_line):
+    left_fit = left_line.current_fit
+    right_fit = right_line.current_fit
+
+    y_eval = image.shape[1]
+
+    left_bottom = (left_fit[0]*y_eval)**2 + left_fit[0]*y_eval + left_fit[2]
+    right_bottom = (right_fit[0]*y_eval)**2 + right_fit[0]*y_eval + right_fit[2]
+
+    center_car = image.shape[1] // 2
+    center_lane = (left_bottom + right_bottom) // 2
+
+    distance_pixel = center_lane - center_car
+    distance_meter = distance_pixel * 3.7 / 1000
+    is_left = distance_meter >= 0
+
+    if is_left:
+        distance_str = "Distance: " + str(distance_meter)[:5] + "m left of the center"
+    else:
+        distance_str = "Distance: " + str( -distance_meter)[:5] + "m right of the center"
+
+    return distance_str
+
 
 def process_one_image(image, left_lines, right_lines):
+    # Undistort
     undistorted_image = undistort(image, distortion_coefficients)
+    # Apply grandient and color threshold
     threshold_image = apply_thresholds(undistorted_image)
+    # Convert into bird view
     perspective_image = perspective_transform(threshold_image, False)
-    lines_img = detect_lines(perspective_image, left_lines, right_lines)
+    # Detect line
+    detect_lines(perspective_image, left_lines, right_lines, False)
+    # Measure the curvature
+    curv = measure_curvature(left_lines, right_lines)
+    print curv
+
+    # If the curvature of the left or the right is less than 200 or more than 50 000
+    # There is an issue, so we want to try and detect the lanes forcing the window sliding method
+    # If the value of the curvature is still off, use the last line.
+    if (curv[0] < 200) | (curv[0] > 50000):
+        detect_lines(perspective_image, left_lines, right_lines, True)
+        curv = measure_curvature(left_lines, right_lines)
+        if ((curv[0] < 200) | (curv[0] > 50000)) & (len(left_lines) > 1):
+            left_lines.pop()
+            left_lines.append(left_lines[-1])
+
+    if (curv[1] < 200) | (curv[1] > 50000):
+        detect_lines(perspective_image, left_lines, right_lines, True)
+        curv = measure_curvature(left_lines, right_lines)
+        if ((curv[1] < 200) | (curv[1] > 50000)) & (len(right_lines) > 1):
+            right_lines.pop()
+            right_lines.append(right_lines[-1])
+
+
+    # Draw lines only once we have the final left and right lines
+    if (left_lines > 0) & (right_lines > 0):
+        lines_img = draw_lines(perspective_image, left_lines[-1].current_fit, right_lines[-1].current_fit)
 
     # Put back into the original space
     perspective_lines_img = perspective_transform(lines_img, True)
+    if (left_lines > 0) & (right_lines > 0):
+        curvature = (left_lines[-1].curv + right_lines[-1].curv) / 2
+        cv2.putText(perspective_lines_img, "Curvature: " + str(int(curvature)) + "m", (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        distance_text = measure_distance_from_center(image, left_lines[-1], right_lines[-1])
+        cv2.putText(perspective_lines_img, distance_text, (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
     # Combine the result with the original image
     result = cv2.addWeighted(undistorted_image, 1, perspective_lines_img, 0.3, 0)
+
     return result
 
 def process_video(video_full_name):
@@ -382,10 +455,10 @@ def process_video(video_full_name):
 
 
 distortion_coefficients = calibrate()
-# process_test_images()
-process_video('challenge_video.mp4')
+process_test_images()
+# process_video('project_video.mp4')
 
 
-
-    # TODO calculate the turn
-    # TODO finish the readme
+    # TODO see why the image is not good
+    # TODO Add last pictures to README
+    # TODO Reread README

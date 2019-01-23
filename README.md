@@ -21,12 +21,13 @@ In order to go from *Fig 1* to *Fig2* we need to follow the following steps:
   * Use color transform and gradients to create a new binary image that highlights the points of interest
   * Apply a perspective transform to get the image in "birds-eye view"
   * Detect the line pixels to get the lane boundary
+  * Calculate the curvature and use it for a sanity check 
+  * Draw the lines into a new image 
+  * Put the line image into the original image perspective
   * Warp the lane boundary on the original picture
   
 All the code for this pipeline is in `find_lanes.py`
- 
-TODO Add a note on the curvature and all 
-TODO explain each  steps
+You can find the output of the pipeline for `project_video.mp4`, called `project_video_mp4` in the same folder.
 
 Camera Calibration and distortion
 --
@@ -64,36 +65,60 @@ These 2 sets of 4 points are then passed to `cv2.getPerspectiveTransform` to get
 
 We then warp the image with M  using `cv2.warpPerspective`. 
 
-TODO ADD IMAGE 
+![Fig 6](./output_images/perspective_transform.jpg)
 
-Detect the lane 
+## Detect the lane 
+There are 2 ways to detect the lane, using sliding windows, and usinng the polinomial from the previous picture.
+
+#### Sliding wondow approach
+The sliding window approach consists dividing the picture in small subsets of the picture, and looks for the highlighted windows (see `detect_lines_windows()`.  
+Using those windows we get a set of coordinates we can use to extrapolate a polynomial. 
+
+`x` is the average x of the highlighted pixels
+`y` is the bottom of the window
+ 
+We use `np.polyfit(left_peaks_y, left_peaks_x, 2)` to get the coefficients of the polynomial that fits the best.
+TODO add image
+#### Polynomial approach
+
+We look for the pixels highlighted that are around another polynomial, we previously calculated. Using the coordinates of those new pixels, we can get the coefficients that would fit our new coefficients the best.
+
+#### Choice between sliding window and polynomial 
+The most efficient way of doing the search is using the the polynomial of the last picture. 
+That being said, there are cases where we can't use this approach: 
+* If the picture is standalone
+* If we couldn't find enough pixels in the area to build a new polynomial
+
+TODO add image
+
+#### Sanity check
+Once we have the polynomials that best fit the picture, we can measure the curvature of the road. Using the curvature we can determine if the latest polinomial makes sense. 
+If it doesn't we will take the picture and search using the sliding window method.
+After measuring the curvature again, if it still doesn't look right, we use the same polynomial as the last picture
+
+
+Measuring Curvature and distance
 ---
-TODO
-There are 2 ways to detect the lane. 
-If the image we are processing is a standalone image, or the first image of the video, we search for the lanes using a sliding window search. 
+To measure the curvature of the road, we use the average of the left and right lane curvature. 
+Before measuring the curvature of one lane, we needs to get the polynomial in meters. We use the coordinates of the pixels highlighted pixels and convert them to meters before getting the new polynomial.
+Then we use the following equation to get the curvature: 
+`curv = ((1 + (2 * poly[0] * y_eval * ym_per_pix + poly[1]) ** 2) ** 1.5) / np.absolute(2 * poly[0])1`
 
+In the warped pictures, 
+On the y axis, I have 700 relevant pixels, that represent roughly 15m
+On the x axis, I have 1000 relevant pixels, that represent roughly 3.7 m
+That is why I used the following values to scale the curvature calculations.
+```    
+ym_per_pix = 15. / 720
+xm_per_pix = 3.7 / 1000 
+```
 
-What was already there 
+To calculate the distance to the center, we get the x where the each lane touches bottom of the image.
+Get the middle position between them, and compare to the center of the image (which is the center of the car). 
+Then we convert to meters and display 
+
+Shortcomings
 ---
-The goals / steps of this project are the following:
-
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-* Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
-
-The images for camera calibration are stored in the folder called `camera_cal`.  The images in `test_images` are for testing your pipeline on single frames.  If you want to extract more test images from the videos, you can simply use an image writing method like `cv2.imwrite()`, i.e., you can read the video in frame by frame as usual, and for frames you want to save for later you can write to an image file.  
-
-To help the reviewer examine your work, please save examples of the output from each stage of your pipeline in the folder called `output_images`, and include a description in your writeup for the project of what each image shows.    The video called `project_video.mp4` is the video your pipeline should work well on.  
-
-The `challenge_video.mp4` video is an extra (and optional) challenge for you if you want to test your pipeline under somewhat trickier conditions.  The `harder_challenge.mp4` video is another optional challenge and is brutal!
-
-If you're feeling ambitious (again, totally optional though), don't stop there!  We encourage you to go out and take video of your own, calibrate your camera and show us how you would implement this project from scratch!
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+* This projects could not be used in real time, as it takes longer to process than to play the video, we could use separate the pipeline into different processes to speed it up, or maybe process less images. 
+* This project is writen to process flat, or almost flat roads, the perspective coefficients would need to be different if we wanted to process an uphill or downhill video.
 
