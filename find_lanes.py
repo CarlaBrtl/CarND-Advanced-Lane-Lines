@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 from moviepy.editor import VideoFileClip
 
-# Define a class to receive the characteristics of each line detection
+## Define a class to receive the characteristics of each line detection
 class Line():
     def __init__(self, current_fit, allx, ally):
         self.current_fit = current_fit
@@ -12,10 +12,10 @@ class Line():
         self.allx = np.float_(allx)
         #y values for detected line pixels
         self.ally = np.float_(ally)
-
         self.curv = None
 
-
+## Load all the image names including the path
+## Returns and array of names
 def load_test_images_names():
     # Get the image names
     image_names = os.listdir("test_images/")
@@ -24,19 +24,21 @@ def load_test_images_names():
         image_full_names.append('test_images/' + img_name)
     return image_full_names
 
+## Loads an image given an image full name
 def load_image(image_name):
     return cv2.imread(image_name)
 
+## Saves an image with the same name as the original image in the output_images folder
 def save_image(image,  image_name):
     print "Saving image"
     image_name = image_name[12:]
     cv2.imwrite(os.path.join("output_images/", image_name), image)
 
-
-## Load calibration pictures
-## Convert then to gray scale
-## Get the chessboard corners
-## Get the camera coefficients, and return them
+## Gets the camera distortion coefficients and returns them.
+# 1- Load calibration pictures
+# 2- Convert then to gray scale
+# 3- Get the chessboard corners
+# 4-  Get the camera coefficients, and return them
 def calibrate():
     print "Calibrating the camera"
     calibration_dir = os.listdir("camera_cal/")
@@ -61,21 +63,9 @@ def calibrate():
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(object_points, image_points, img_size, None, None)
     print "The distortions coefficients are found"
 
-    ## Note: Uncomment the following lines to test  on an image
-    # test_img = cv2.imread("camera_cal/" + calibration_dir[0])
-    # dst = cv2.undistort(test_img, mtx, dist, None, mtx)
-    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-    # ax1.imshow(test_img)
-    # ax1.set_title('Original Image', fontsize=30)
-    # ax2.imshow(dst)
-    # ax2.set_title('Undistorted Image', fontsize=30)
-    # plt.savefig('output_images/calib_example.jpg')
-    # plt.show()
-
-
-
     return ret, mtx, dist, rvecs, tvecs
 
+## Undistorts the original image using distortion coefficients
 def undistort(image, distortion_coefficients):
     print "Undistorting image "
 
@@ -84,16 +74,9 @@ def undistort(image, distortion_coefficients):
 
     undistorted_image = cv2.undistort(image, mtx, dist, None, mtx)
 
-    ## Note: Uncomment the following lines to test  on an image
-    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-    # ax1.imshow(image)
-    # ax1.set_title('Original Image', fontsize=30)
-    # ax2.imshow(undistorted_image)
-    # ax2.set_title('Undistorted Image', fontsize=30)
-    # plt.show()
-
     return undistorted_image
 
+## Applies gradient and color thresholds
 def apply_thresholds(image):
     print "Applying color and gradient threshold"
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -116,11 +99,6 @@ def apply_thresholds(image):
     magniture_binary = np.zeros_like(magnitude)
     magniture_binary[(scaled_sobel_mag >= 50) & (scaled_sobel_mag <= 300)] = 1
 
-    # # Direction of the gradient
-    # direction = np.arctan2(absolute_sobely, absolute_sobelx)
-    # direction_binary = np.zeros_like(direction)
-    # direction_binary[(direction >= 0.3) & (direction <= 0.7)] = 1
-
     # Convert to HLS
     hls_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
     s_channel = hls_image[:, :, 2]
@@ -131,23 +109,12 @@ def apply_thresholds(image):
     combined = np.zeros_like(magniture_binary)
     combined[((magniture_binary == 1) & (sx_binary == 1)) | (hls_binary == 1)] = 1
 
-    ## Note: Uncomment the following lines to test  on an image
-    # f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(1, 5, figsize=(20, 10))
-    # ax0.imshow(image)
-    # ax0.set_title('Original image',  fontsize=30)
-    # ax1.imshow(magniture_binary)
-    # ax1.set_title('Magnitude binary', fontsize=30)
-    # ax2.imshow(sx_binary)
-    # ax2.set_title('Sobelx binary', fontsize=30)
-    # ax3.imshow(hls_binary)
-    # ax3.set_title('Saturation channel binary', fontsize=30)
-    # ax4.imshow(combined)
-    # ax4.set_title('Combined image', fontsize=30)
-    # plt.savefig('output_images/apply_threshold.jpg')
-    # plt.show()
-
     return combined
 
+## Transforms the image to a different perspective.
+## If inverse == False, transform from original image to bird view perspective
+## Else, transform from bird view to the original perspective
+## Returns the new image
 def perspective_transform(image,  inverse):
     print "Transforming the perspective"
     img_size = (image.shape[1], image.shape[0])
@@ -163,17 +130,9 @@ def perspective_transform(image,  inverse):
 
     warped = cv2.warpPerspective(image, M, img_size, flags=cv2.INTER_LINEAR)
 
-    ## Note: Uncomment the following lines to test  on an image
-    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-    # ax1.imshow(image)
-    # ax1.set_title('Theshold', fontsize=30)
-    # ax2.imshow(warped)
-    # ax2.set_title('Warped', fontsize=30)
-    # plt.savefig('output_images/perspective_transform.jpg')
-    # plt.show()
-
     return warped
 
+## Detects the lanes in the bird view picuture using the right method (window sliding or based on the known previous polynomial)
 def detect_lines(image, left_lines, right_lines, force_window_detection):
     print "Detecting lines"
 
@@ -189,6 +148,7 @@ def detect_lines(image, left_lines, right_lines, force_window_detection):
     left_lines.append(left_line)
     right_lines.append(right_line)
 
+## Detects both the left and right lanes based on the last polinomial
 def detect_lines_polinomial(image, left_lines, right_lines):
 
     # Get the zone I need to look into
@@ -231,6 +191,7 @@ def detect_lines_polinomial(image, left_lines, right_lines):
 
     return left_line, right_line
 
+## Calculates the average of the polynomial coefficients for the past n images
 def get_average_over_last_n_lines(lines, n):
     poly_2 = []
     poly_1 = []
@@ -249,7 +210,7 @@ def get_average_over_last_n_lines(lines, n):
 
     return np.average(poly_0), np.average(poly_1), np.average(poly_2)
 
-
+## Detects the lanes using the sliding window method
 def detect_lines_windows(image, left_lines, right_lines):
     shape = image.shape
 
@@ -286,7 +247,12 @@ def detect_lines_windows(image, left_lines, right_lines):
 
     return left_line, right_line
 
-
+## Draws the lane in the bird view image
+## Input:
+#    image: the image to  draw the lines in
+#    left_fit: the polynomial coefficients of the polynomial that fits the left points
+#    right_fit: the polynomial coefficients of the polynomial that fits the right points
+## Output: the image with only the lines drawned in it
 def draw_lines(image, left_fit, right_fit):
     # Assuming we have `left_fit` and `right_fit` from `np.polyfit` before
     # Generate x and y values for plotting
@@ -309,6 +275,7 @@ def draw_lines(image, left_fit, right_fit):
 
     return color_warp
 
+## Detects 1 lane using the window slicing method
 def detect_one_lane(image, peaks_x, peaks_y, shape, window_id, window_size, isLeft):
     ## Left window
     window_bottom_y = int(shape[0] - (window_id + 1) * window_size)
@@ -325,39 +292,28 @@ def detect_one_lane(image, peaks_x, peaks_y, shape, window_id, window_size, isLe
         window_left_x = peaks_x[-1] - 100
         window_right_x = peaks_x[-1] + 100
 
-    # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
-    # ax1.imshow(image)
-    # ax1.set_title('Theshold', fontsize=30)
-    # ax2.imshow(image[window_bottom_y:window_top_y, :])
-    # ax2.set_title('Warped', fontsize=30)
-    # plt.show()
-
     histogram = np.sum(image[window_bottom_y:window_top_y, :], axis=0)
 
     #  If we have more than 50 pixels, append to our peak list
-    if np.int(histogram[window_left_x:window_right_x].sum()) > 10:
+    if np.int(histogram[window_left_x:window_right_x].sum()) > 25:
         left_peak = np.argmax(histogram[window_left_x:window_right_x])
         peaks_x.append(left_peak + window_left_x)
         peaks_y.append(window_top_y)
 
-
-# Run the code
-def process_test_images():
-    image_names = load_test_images_names()
-    for image_name in image_names:
-        print "Starting the process on image" + image_name
-        distorted_image = load_image(image_name)
-
-        result = process_one_image(distorted_image, [], [])
-
-        save_image(result, image_name)
-
+## Measure the curvature for the left and right lines
+## Input:
+#    left_lines:  an array of the previous images Lines
+#    right_lines:  an array of the previous images Lines
+## Output: the values of both the left and right curvatures
 def measure_curvature(left_lines, right_lines):
     left_curv = measure_one_line_curvature(left_lines[-1])
     right_curv = measure_one_line_curvature(right_lines[-1])
 
     return left_curv, right_curv
 
+## Measure the curvature of on lane
+## Input: the Line object we want to measure the curvature on
+## Output: the curvature value
 def measure_one_line_curvature(line):
     ym_per_pix = 15. / 720
     xm_per_pix = 3.7 / 1000
@@ -373,6 +329,9 @@ def measure_one_line_curvature(line):
 
     return curv
 
+## Measure the distance between the center of the car and the cenrer of the line
+## Input: the image, and both Line object for the left and right linee
+## Output: a string describing the position of the car relative to the center of the line
 def measure_distance_from_center(image, left_line, right_line):
     left_fit = left_line.current_fit
     right_fit = right_line.current_fit
@@ -396,6 +355,13 @@ def measure_distance_from_center(image, left_line, right_line):
 
     return distance_str
 
+## Applies the full pipeline to an image
+## Does a sanity check on the curvature result and reprocesses the image if necessary
+## Input:
+#    image:
+#    left_lines:  an array of Lines representing the history of the left line
+#    right_lines:  an array of Lines representing the history of the right line
+## Output: The processed image
 
 def process_one_image(image, left_lines, right_lines):
     # Undistort
@@ -436,7 +402,8 @@ def process_one_image(image, left_lines, right_lines):
     perspective_lines_img = perspective_transform(lines_img, True)
     if (left_lines > 0) & (right_lines > 0):
         curvature = (left_lines[-1].curv + right_lines[-1].curv) / 2
-        cv2.putText(perspective_lines_img, "Curvature: " + str(int(curvature)) + "m", (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        if curvature != float('inf') :
+            cv2.putText(perspective_lines_img, "Curvature: " + str(int(curvature)) + "m", (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         distance_text = measure_distance_from_center(image, left_lines[-1], right_lines[-1])
         cv2.putText(perspective_lines_img, distance_text, (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
@@ -445,20 +412,33 @@ def process_one_image(image, left_lines, right_lines):
 
     return result
 
+## Processes all the images in the test_image folder
+## And saves them in the test_image_output_folder
+def process_test_images():
+    image_names = load_test_images_names()
+    for image_name in image_names:
+        print "Starting the process on image" + image_name
+        distorted_image = load_image(image_name)
+
+        result = process_one_image(distorted_image, [], [])
+
+        save_image(result, image_name)
+
+
+## Processes all the images of a video
+## And saves it in output.mp4
+## Input: the full name of the video the process
+## Output: None
 def process_video(video_full_name):
     left_lines = []
     right_lines = []
 
     clip1 = VideoFileClip(video_full_name)
     output_clip = clip1.fl_image(lambda image: process_one_image(image, left_lines, right_lines))
-    output_clip.write_videofile("ouput.mp4", audio=False)
+    output_clip.write_video("ouput.mp4")
 
-
+## Runs the whole code
 distortion_coefficients = calibrate()
 process_test_images()
-# process_video('project_video.mp4')
+process_video('project_video.mp4')
 
-
-    # TODO see why the image is not good
-    # TODO Add last pictures to README
-    # TODO Reread README

@@ -12,7 +12,8 @@ The Project
 
 This project takes a picture, finds the lane boundaries and displays them, as well as information about the route and the position of the car relative to the lanes
 
-* Get the calibration coefficients for the camera beeing used using a set of chessboard images
+Here are the steps of the pipeline: 
+* Get the calibration coefficients for the camera using a set of chessboard images
 * For each image we want to process: 
   * Apply a distortion correction to raw images
   * Use color transform and gradients to create a new binary image that highlights the points of interest
@@ -24,7 +25,9 @@ This project takes a picture, finds the lane boundaries and displays them, as we
   * Warp the lane boundary on the original picture
   
 All the code for this pipeline is in `find_lanes.py`
-You can find the output of the pipeline for `project_video.mp4`, called `project_video_mp4` in the same folder.
+
+You can find the output of the pipeline for `project_video.mp4`, called `project_video_output.mp4` in the `output_video folder` or at the bottom of this page.
+The challenge videos are not working. 
 
 Camera Calibration and distortion
 --
@@ -57,7 +60,7 @@ Perspective Change
 --
 To be able to fit polynomials on the lanes we need to change the perspective to be from the top (see `perspective_transform()`):
 . 
-To change the perspective, I took 4 points in the original image and defines 4 points where they should be. 
+To change the perspective, I took 4 points in the original image and defines 4 points where they should be.  in the "bird view"
 These 2 sets of 4 points are then passed to `cv2.getPerspectiveTransform` to get the perspective transform matrix M. 
 
 We then warp the image with M  using `cv2.warpPerspective`. 
@@ -65,7 +68,7 @@ We then warp the image with M  using `cv2.warpPerspective`.
 ![Fig 6](./output_images/perspective_transform.jpg)
 
 ## Detect the lane 
-There are 2 ways to detect the lane, using sliding windows, and usinng the polinomial from the previous picture.
+There are 2 ways to detect the lane, using sliding windows, and using the polynomial from the previous picture (see `detect_lines()`)
 
 #### Sliding wondow approach
 The sliding window approach consists dividing the picture in small subsets of the picture, and looks for the highlighted windows (see `detect_lines_windows()`.  
@@ -77,7 +80,7 @@ Using those windows we get a set of coordinates we can use to extrapolate a poly
  
 We use `np.polyfit(left_peaks_y, left_peaks_x, 2)` to get the coefficients of the polynomial that fits the best.
 
-![Fig 7](./output_images/window_sliding.png)
+![Fig 7](./output_images/window_sliding.jpg)
 
 #### Polynomial approach
 
@@ -97,6 +100,8 @@ After measuring the curvature again, if it still doesn't look right, we use the 
 
 Measuring Curvature and distance
 ---
+See `measure_curvature()` and `measure_distance_from_center()` 
+
 To measure the curvature of the road, we use the average of the left and right lane curvature. 
 Before measuring the curvature of one lane, we needs to get the polynomial in meters. We use the coordinates of the pixels highlighted pixels and convert them to meters before getting the new polynomial.
 Then we use the following equation to get the curvature: 
@@ -120,3 +125,11 @@ Shortcomings
 * This projects could not be used in real time, as it takes longer to process than to play the video, we could use separate the pipeline into different processes to speed it up, or maybe process less images. 
 * This project is writen to process flat, or almost flat roads, the perspective coefficients would need to be different if we wanted to process an uphill or downhill video.
 * The `apply_thresholds` needs to be improved to handle change in lighting or roads that are different color like in the challenge videos.
+
+Result 
+---
+Here is a gif of the output video:
+You can also download the output video for `project_video.mp4` in `output_video/project_video_output.mp4`
+
+
+![Alt Text](https://github.com/CarlaBrtl/CarND-Advanced-Lane-Lines/output_project_video.gif)
