@@ -132,4 +132,4 @@ Here is a gif of the output video:
 You can also download the output video for `project_video.mp4` in `output_video/project_video_output.mp4`
 
 
-![Alt Text](https://github.com/CarlaBrtl/CarND-Advanced-Lane-Lines/project_video_ouput.gif)
+![Alt Text](https://github.com/CarlaBrtl/CarND-Advanced-Lane-Lines/blob/master/project_video_ouput.gif)
