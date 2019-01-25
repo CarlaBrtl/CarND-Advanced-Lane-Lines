@@ -49,7 +49,7 @@ I applied the threshold to:
 * The sobelx grandient
 * The magnitude gradient
 
-I then converted the image to hls, and applied a threshold on the saturation channel. 
+I then converted the image to hls, and applied a threshold on the saturation channel, filtering out the pixels where the lightness was under 20. 
 ![Fig 4](./output_images/apply_threshold.jpg)
 
 To achieve the result I took the pixels that are both in the magnitude binary image, and sobelx binary image. And added to them the saturation binary pixels that fit my threshold. 
@@ -132,4 +132,4 @@ Here is a gif of the output video:
 You can also download the output video for `project_video.mp4` in `output_video/project_video_output.mp4`
 
 
-![Alt Text](https://github.com/CarlaBrtl/CarND-Advanced-Lane-Lines/blob/master/project_video_ouput.gif)
+![Alt Text](https://github.com/CarlaBrtl/CarND-Advanced-Lane-Lines/blob/master/project_video_output.gif)
