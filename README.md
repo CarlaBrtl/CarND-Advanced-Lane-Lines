@@ -109,11 +109,11 @@ Then we use the following equation to get the curvature:
 
 In the warped pictures, 
 On the y axis, I have 700 relevant pixels, that represent roughly 15m
-On the x axis, I have 1000 relevant pixels, that represent roughly 3.7 m
+On the x axis, the 2 lane lines are separated by roughly 700 pixels, a lane has a 3.7m width 
 That is why I used the following values to scale the curvature calculations.
 ```    
 ym_per_pix = 15. / 720
-xm_per_pix = 3.7 / 1000 
+xm_per_pix = 3.7 / 700 
 ```
 
 To calculate the distance to the center, we get the x where the each lane touches bottom of the image.

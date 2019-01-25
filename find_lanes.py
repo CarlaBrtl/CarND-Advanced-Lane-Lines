@@ -105,6 +105,18 @@ def apply_thresholds(image):
     hls_binary = np.zeros_like(s_channel)
     hls_binary[(s_channel > 200) & (s_channel < 255)] = 1
 
+    luv_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
+    f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 10))
+    ax1.imshow(luv_image[:,:,0])
+    ax1.set_title('L', fontsize=30)
+    ax2.imshow(luv_image[:,:,1])
+    ax2.set_title('U', fontsize=30)
+    ax3.imshow(luv_image[:,:,2])
+    ax3.set_title('V', fontsize=30)
+    plt.show()
+
+
+
 
     combined = np.zeros_like(magniture_binary)
     combined[((magniture_binary == 1) & (sx_binary == 1)) | (hls_binary == 1)] = 1
@@ -316,7 +328,7 @@ def measure_curvature(left_lines, right_lines):
 ## Output: the curvature value
 def measure_one_line_curvature(line):
     ym_per_pix = 15. / 720
-    xm_per_pix = 3.7 / 1000
+    xm_per_pix = 3.7 / 700
 
     allx = line.allx
     ally = line.ally
@@ -345,7 +357,7 @@ def measure_distance_from_center(image, left_line, right_line):
     center_lane = (left_bottom + right_bottom) // 2
 
     distance_pixel = center_lane - center_car
-    distance_meter = distance_pixel * 3.7 / 1000
+    distance_meter = distance_pixel * 3.7 / 700
     is_left = distance_meter >= 0
 
     if is_left:
@@ -435,10 +447,10 @@ def process_video(video_full_name):
 
     clip1 = VideoFileClip(video_full_name)
     output_clip = clip1.fl_image(lambda image: process_one_image(image, left_lines, right_lines))
-    output_clip.write_video("ouput.mp4")
+    output_clip.write_videofile("ouput.mp4")
 
 ## Runs the whole code
 distortion_coefficients = calibrate()
 process_test_images()
-process_video('project_video.mp4')
+# process_video('project_video.mp4')
 
